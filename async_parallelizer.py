@@ -17,13 +17,13 @@ class AsyncParallelizer:
         """
         Run a list of asynchronous coroutines concurrently using threads, dividing them into smaller groups.
 
-        Args:
-            coros (List[Callable[..., Coroutine]]): List of asynchronous coroutines to run.
-            max_process_groups (int): Maximum number of process groups to create concurrently.
-            return_exceptions: whether exceptions/errors should be included in the yielded results
+        :param
+            - coros (List[Callable[..., Coroutine]]): List of asynchronous coroutines to run.
+            - max_process_groups (int): Maximum number of process groups to create concurrently.
+            - return_exceptions: whether exceptions/errors should be included in the yielded results
 
-        Yields:
-            Any | BaseException: Results or exceptions from the executed coroutines.
+        :return:
+            AsyncGenerator[Any | BaseException]: Results or exceptions from the executed coroutines.
 
         Note:
             This method divides the provided coroutines into smaller groups to run concurrently, based on the 'max_process_groups' parameter.
@@ -69,7 +69,7 @@ class AsyncParallelizer:
         while not results_queue.empty():
             yield results_queue.get_nowait()
 
-        executor.shutdown(wait=False)
+        executor.shutdown(wait=True)
 
     @classmethod
     def _divide_coros(cls, coros: List[Callable[..., Coroutine]], n: int) -> List[List[Callable[..., Coroutine]]]:

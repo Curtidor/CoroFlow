@@ -1,13 +1,16 @@
 import asyncio
+import functools
+import random
+
 from async_parallelizer import AsyncParallelizer
 
-from typing import Callable
 
-
-async def fetch_data(url_generator: Callable) -> str:
+async def fetch_data(url: str) -> str:
     # Simulate fetching data from a URL
-    await asyncio.sleep(1)  # Simulate varying fetch times
-    return f"Data fetched from {url_generator()}"
+    sleep_time = random.randint(1, 3)
+    await asyncio.sleep(sleep_time)  # Simulate varying fetch times
+    print(sleep_time)
+    return f"Data fetched from {url}"
 
 
 async def main():
@@ -20,14 +23,10 @@ async def main():
         "https://example.com/data5"
     ]
 
-    def url_gen() -> str:
-        return urls.pop()
-
     # Create a list of asynchronous tasks
-    tasks = [fetch_data for url in urls]
-
+    tasks = [functools.partial(fetch_data, url) for url in urls]
     # Run the tasks concurrently with a maximum of 3 process groups
-    async for item in AsyncParallelizer.run_coros(tasks, url_gen, max_process_groups=3):
+    async for item in AsyncParallelizer.run_coros(tasks, max_process_groups=5):
         print(item)
 
 
