@@ -1,75 +1,143 @@
 import asyncio
-import functools
+import threading
+import traceback
 import math
 
+from asyncio import Queue, AbstractEventLoop
 from concurrent.futures import ThreadPoolExecutor
-from typing import Coroutine, List, Callable, AsyncGenerator, Any
+from typing import Coroutine, List, Callable, AsyncGenerator, Any, Union
 
 
-class TaskRef:
-    def __init__(self):
-        self.task: asyncio.Task = None  # noqa
+class _ErrorPlaceHolder:
+    pass
 
 
 class AsyncParallelizer:
     @classmethod
-    async def run_coros(cls, coros: List[Callable[..., Coroutine]], *args, max_process_groups: int = 4, return_exceptions: bool = True, **kwargs) -> AsyncGenerator[Any | BaseException, None]:
+    async def threading_run_coros(cls, coros: List[Callable[..., Coroutine]], *args, max_process_groups: int = 4,
+                                  timeout: float = 0, return_exceptions: bool = True,
+                                  debug: bool = False, **kwargs) \
+            -> AsyncGenerator[Union[Any, BaseException], None]:
         """
         Run a list of asynchronous coroutines concurrently using threads, dividing them into smaller groups.
 
-        :param
-            - coros (List[Callable[..., Coroutine]]): List of asynchronous coroutines to run.
-            - max_process_groups (int): Maximum number of process groups to create concurrently.
-            - return_exceptions: whether exceptions/errors should be included in the yielded results
+        Args:
+           coros (List[Callable[..., Coroutine]]): List of asynchronous coroutines to run.
+           max_process_groups (int): Maximum number of process groups to create concurrently.
+           timeout (float): Maximum number of seconds to wait. 0 means wait indefinitely.
+           return_exceptions (bool): Whether exceptions/errors should be included in the yielded results.
+           debug (bool): if true prints traceback when an exceptions occur
 
-        :return:
-            AsyncGenerator[Any | BaseException]: Results or exceptions from the executed coroutines.
+        Returns:
+           AsyncGenerator[Union[Any, BaseException]: Results or exceptions from the executed coroutines.
 
-        Note:
-            This method divides the provided coroutines into smaller groups to run concurrently, based on the 'max_process_groups' parameter.
-            For example, if 100 coroutines are provided with 'max_process_groups' set to 4, the coroutines will be split into 4 groups of 25.
-            Each group will be executed concurrently in its own thread. As results become available, they are yielded to the user,
-            ensuring that the system remains responsive even if some coroutines are still being processed.
+        Note: This method divides the provided coroutines into smaller groups to run concurrently, based on the
+        'max_process_groups' parameter. For example, if 100 coroutines are provided with 'max_process_groups' set to
+        4, the coroutines will be split into 4 groups of 25. Each group will be executed concurrently in its own
+        thread. As results become available, they are yielded to the user, ensuring that the system remains
+        responsive even if some coroutines are still being processed.
 
-        """
+       """
 
         max_process_groups = max_process_groups if max_process_groups > 0 else 1
 
         coro_groups = cls._divide_coros(coros, max_process_groups)
-        running_futures = []
 
-        task_ref = TaskRef()
+        loop = await cls._get_loop()
+        lock = threading.Lock()
+        results_queue = Queue()
 
-        results_queue = asyncio.Queue()
-        executor = ThreadPoolExecutor(max_workers=max_process_groups)
-        while coro_groups:
-            sub_set_of_coros = coro_groups.pop()
+        def wrapper(sub_coros: List[Callable[..., Coroutine]]):
+            async def async_wrapper():
+                async for result in cls.run_coros(
+                        coros=sub_coros, timeout=timeout,
+                        return_exceptions=return_exceptions, debug=debug, loop=None, *args, **kwargs
+                ):
+                    with lock:
+                        await results_queue.put(result)
 
-            future = asyncio.wrap_future(
-                executor.submit(cls._async_wrapper, sub_set_of_coros, results_queue, return_exceptions, *args, *kwargs)
-            )
-            running_futures.append(future)
+            asyncio.run_coroutine_threadsafe(async_wrapper(), loop)
 
-            callback = functools.partial(cls._on_future_finish, running_futures, task_ref)
-            future.add_done_callback(callback)
+        with ThreadPoolExecutor(max_workers=max_process_groups) as executor:
+            while coro_groups:
+                executor.submit(wrapper, coro_groups.pop())
 
-        async def get_queue_item() -> Any:
-            return await results_queue.get()
+        for _ in range(len(coros)):
+            yield await results_queue.get()
 
-        while running_futures:
-            task_ref.task = asyncio.create_task(get_queue_item())
+    @classmethod
+    async def run_coros(
+            cls, coros: List[Callable[..., Coroutine]], *args,
+            timeout: float = 0, return_exceptions: bool = True,
+            debug: bool = False, loop: AbstractEventLoop = None, **kwargs
+    ) -> AsyncGenerator[Union[Any, BaseException], None]:
+        """
+           Runs a list of coroutines concurrently with optional timeout and error handling.
+
+           This method takes a list of coroutine functions, executes them concurrently, and yields their results as
+           they complete. If a timeout is specified, each coroutine will be allowed to run for up to the specified
+           number of seconds.
+
+           Args: coros (List[Callable[..., Coroutine]]): A list of coroutine functions to be executed. *args:
+           Positional arguments to pass to each coroutine. timeout (float, optional): Maximum time in seconds to
+           allow each coroutine to run. Defaults to 0 (no timeout). return_exceptions (bool, optional): Whether to
+           yield exceptions if they occur in coroutines. Defaults to True. debug (bool, optional): If True,
+           exceptions will be printed to the console. Defaults to False. loop (AbstractEventLoop, optional): An
+           existing event loop to use. If None or closed, a new loop will be created. Defaults to None. **kwargs:
+           Additional keyword arguments to pass to each coroutine.
+
+           Yields:
+               Union[Any, BaseException]: The result of each coroutine or an exception if `return_exceptions` is True.
+           """
+
+        if not loop or loop.is_closed():
+            loop = await cls._get_loop()
+
+        if not timeout:
+            timeout = None
+
+        results_queue = Queue()
+
+        async def task_wrapper(coro: Callable[..., Coroutine]):
+            async def execute_coro():
+                return await coro(*args, **kwargs)
+
             try:
-                await task_ref.task
-            except asyncio.CancelledError:
-                # if the task is cancelled all the running futures have finished, so we can break out of the loop
-                break
-            yield task_ref.task.result()
+                coro_result = await asyncio.wait_for(execute_coro(), timeout=timeout)
+            except BaseException as e:
+                if debug:
+                    traceback.print_exc()
+                coro_result = e if return_exceptions else _ErrorPlaceHolder()
 
-        # yield any remaining item in the queue
-        while not results_queue.empty():
-            yield results_queue.get_nowait()
+            await results_queue.put(coro_result)
 
-        executor.shutdown(wait=True)
+        background_tasks = set()
+
+        async def task_producer_wrapper():
+            for c in coros:
+                task = loop.create_task(task_wrapper(c))
+
+                background_tasks.add(task)
+                task.add_done_callback(background_tasks.discard)
+
+        if not loop.is_running():
+            loop.run_until_complete(task_producer_wrapper())
+        else:
+            await task_producer_wrapper()
+
+        for _ in range(len(coros)):
+            result = await results_queue.get()
+            if isinstance(result, _ErrorPlaceHolder):
+                continue
+
+            yield result
+
+    @staticmethod
+    async def _get_loop() -> asyncio.AbstractEventLoop:
+        try:
+            return asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.get_event_loop_policy().get_event_loop()
 
     @classmethod
     def _divide_coros(cls, coros: List[Callable[..., Coroutine]], n: int) -> List[List[Callable[..., Coroutine]]]:
@@ -92,60 +160,3 @@ class AsyncParallelizer:
             coro_groups.append(sub_task_list)
 
         return coro_groups
-
-    @classmethod
-    def _async_wrapper(cls, coros: List[Callable[..., Coroutine]], results_queue: asyncio.Queue, return_exceptions: bool, *args, **kwargs) -> None:
-        """
-        Execute a list of asynchronous coroutines and put results into a queue.
-
-        Args:
-            coros (List[Callable[..., Coroutine]]): List of asynchronous coroutines.
-            results_queue (asyncio.Queue): Queue to store results.
-            return_exceptions: whether exceptions/errors should be included in the yielded results
-
-        """
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        tasks = [loop.create_task(coro(*args, **kwargs)) for coro in coros]
-
-        coro = cls._wait_for_task(tasks, return_exceptions)
-        for result in loop.run_until_complete(coro):
-            results_queue.put_nowait(result)
-
-        loop.close()
-
-    @staticmethod
-    async def _wait_for_task(tasks: List[asyncio.Task], return_exceptions: bool) -> List[Any | BaseException]:
-        """
-        Wait for a list of asynchronous tasks to complete.
-
-        Args:
-            tasks (List[asyncio.Task]): List of asynchronous tasks.
-            return_exceptions: whether exceptions/errors should be included in the yielded results
-
-        Returns:
-            List[Any | BaseException]: Results or exceptions from the completed tasks.
-        """
-        r = []
-
-        results = await asyncio.gather(*tasks, return_exceptions=return_exceptions)
-        for result in results:
-            r.append(result)
-
-        return r
-
-    @staticmethod
-    def _on_future_finish(running_futures: List[asyncio.Future], task_ref: TaskRef, fut: asyncio.Future) -> None:
-        """
-        Callback function to handle completion of a future.
-
-        Args:
-            running_futures (List[asyncio.Future]): List of running futures.
-            task_ref (TaskRef): Reference to the current running task.
-            fut (asyncio.Future): Completed future.
-        """
-        running_futures.remove(fut)
-
-        if len(running_futures) == 0 and task_ref.task:
-            task_ref.task.cancel()
