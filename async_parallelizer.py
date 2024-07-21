@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import threading
 import traceback
 import math
@@ -13,6 +14,8 @@ class _ErrorPlaceHolder:
 
 
 class AsyncParallelizer:
+    _logger = logging.getLogger(__name__)
+
     @classmethod
     async def threading_run_coros(cls, coros: List[Callable[..., Coroutine]], *args, max_process_groups: int = 4,
                                   timeout: float = 0, return_exceptions: bool = True,
@@ -22,11 +25,11 @@ class AsyncParallelizer:
         Run a list of asynchronous coroutines concurrently using threads, dividing them into smaller groups.
 
         Args:
-           coros (List[Callable[..., Coroutine]]): List of asynchronous coroutines to run.
-           max_process_groups (int): Maximum number of process groups to create concurrently.
-           timeout (float): Maximum number of seconds to wait. 0 means wait indefinitely.
-           return_exceptions (bool): Whether exceptions/errors should be included in the yielded results.
-           debug (bool): if true prints traceback when an exceptions occur
+           -coros (List[Callable[..., Coroutine]]): List of asynchronous coroutines to run.
+           -max_process_groups (int): Maximum number of process groups to create concurrently.
+           -timeout (float): Maximum number of seconds to wait. 0 means wait indefinitely.
+           -return_exceptions (bool): Whether exceptions/errors should be included in the yielded results.
+           -debug (bool): if true prints traceback when an exceptions occur
 
         Returns:
            AsyncGenerator[Union[Any, BaseException]: Results or exceptions from the executed coroutines.
@@ -62,7 +65,7 @@ class AsyncParallelizer:
             while coro_groups:
                 executor.submit(wrapper, coro_groups.pop())
 
-        for _ in range(len(coros)):
+        for _ in coros:
             yield await results_queue.get()
 
     @classmethod
@@ -78,13 +81,17 @@ class AsyncParallelizer:
            they complete. If a timeout is specified, each coroutine will be allowed to run for up to the specified
            number of seconds.
 
-           Args: coros (List[Callable[..., Coroutine]]): A list of coroutine functions to be executed. *args:
-           Positional arguments to pass to each coroutine. timeout (float, optional): Maximum time in seconds to
-           allow each coroutine to run. Defaults to 0 (no timeout). return_exceptions (bool, optional): Whether to
-           yield exceptions if they occur in coroutines. Defaults to True. debug (bool, optional): If True,
-           exceptions will be printed to the console. Defaults to False. loop (AbstractEventLoop, optional): An
-           existing event loop to use. If None or closed, a new loop will be created. Defaults to None. **kwargs:
-           Additional keyword arguments to pass to each coroutine.
+           Args:
+               -coros (List[Callable[..., Coroutine]]): A list of coroutine functions to be executed.
+               -*args: Positional arguments to pass to each coroutine.
+               -timeout (float, optional): Maximum time in seconds to allow each coroutine to run. Defaults to
+                    0 (no timeout).
+               -return_exceptions (bool, optional): Whether to yield exceptions if they occur in coroutines.
+               Defaults to True
+               -debug (bool, optional): If True, exceptions will be printed to the console. Defaults to False.
+               -loop (AbstractEventLoop, optional): An existing event loop to use. If None or closed, a new loop will
+                    be created. Defaults to None.
+               -**kwargs: Additional keyword arguments to pass to each coroutine.
 
            Yields:
                Union[Any, BaseException]: The result of each coroutine or an exception if `return_exceptions` is True.
@@ -106,6 +113,9 @@ class AsyncParallelizer:
                 coro_result = await asyncio.wait_for(execute_coro(), timeout=timeout)
             except BaseException as e:
                 if debug:
+                    cls._logger.error("Exception occurred: %s", e)
+                    cls._logger.error("Exception type: %s", type(e).__name__)
+                    cls._logger.error("Exception args: %s", e.args)
                     traceback.print_exc()
                 coro_result = e if return_exceptions else _ErrorPlaceHolder()
 
@@ -114,9 +124,11 @@ class AsyncParallelizer:
         background_tasks = set()
 
         async def task_producer_wrapper():
+            # this function kept async, so it can be treated as a future in the loop
             for c in coros:
                 task = loop.create_task(task_wrapper(c))
 
+                # add the task to the set, to avoid the task being garbage collected
                 background_tasks.add(task)
                 task.add_done_callback(background_tasks.discard)
 
@@ -125,7 +137,7 @@ class AsyncParallelizer:
         else:
             await task_producer_wrapper()
 
-        for _ in range(len(coros)):
+        for _ in coros:
             result = await results_queue.get()
             if isinstance(result, _ErrorPlaceHolder):
                 continue
@@ -139,8 +151,8 @@ class AsyncParallelizer:
         except RuntimeError:
             return asyncio.get_event_loop_policy().get_event_loop()
 
-    @classmethod
-    def _divide_coros(cls, coros: List[Callable[..., Coroutine]], n: int) -> List[List[Callable[..., Coroutine]]]:
+    @staticmethod
+    def _divide_coros(coros: List[Callable[..., Coroutine]], n: int) -> List[List[Callable[..., Coroutine]]]:
         """
         Divide a list of coroutines into smaller groups.
 
