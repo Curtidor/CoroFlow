@@ -127,6 +127,21 @@ class TestAsyncParallelizer(unittest.IsolatedAsyncioTestCase):
 
             mocked_method.assert_called_once_with(coros)
 
+    async def test_unstarted_event_loop(self):
+        loop = asyncio.new_event_loop()
+
+        async def task_one():
+            return "task_one"
+
+        async def task_two():
+            return "task_two"
+
+        coros = [task_one, task_two]
+
+        results = [result async for result in AsyncParallelizer.run_coros(coros, loop=loop)]
+        self.assertIn("task_one", results)
+        self.assertIn("task_two", results)
+
 
 if __name__ == '__main__':
     unittest.main()
