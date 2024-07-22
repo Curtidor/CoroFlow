@@ -2,7 +2,7 @@ import asyncio
 import functools
 import random
 
-from async_parallelizer import AsyncParallelizer
+from async_parallelizer import run_coros
 
 
 async def fetch_data(url: str) -> str:
@@ -25,8 +25,8 @@ async def main():
     # Create a list of asynchronous tasks
     tasks = [functools.partial(fetch_data, url) for url in urls]
     # Run the tasks concurrently with a maximum of 3 process groups
-    async for result in AsyncParallelizer.threading_run_coros(tasks):
-        print(result, "l")
+    async for result in run_coros(tasks, timeout=4):
+        print(result)
 
 
 asyncio.run(main())
