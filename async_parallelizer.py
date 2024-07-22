@@ -97,13 +97,19 @@ class AsyncParallelizer:
                Union[Any, BaseException]: The result of each coroutine or an exception if `return_exceptions` is True.
            """
 
-        if not loop or loop.is_closed():
+        if not loop or loop.is_closed() or not loop.is_running():
+            # if the provided loop is None, closed, or not currently running,
+            # we need to obtain a valid loop to execute the coroutines.
+            # This ensures that the coroutines do not remain pending due to
+            # an invalid or inactive loop.
             loop = await cls._get_loop()
 
         if not timeout:
             timeout = None
 
         results_queue = Queue()
+
+        _ERROR_PLACEHOLDER_INSTANCE = _ErrorPlaceHolder()
 
         async def task_wrapper(coro: Callable[..., Coroutine]):
             async def execute_coro():
@@ -113,33 +119,23 @@ class AsyncParallelizer:
                 coro_result = await asyncio.wait_for(execute_coro(), timeout=timeout)
             except BaseException as e:
                 if debug:
-                    cls._logger.error("Exception occurred: %s", e)
-                    cls._logger.error("Exception type: %s", type(e).__name__)
-                    cls._logger.error("Exception args: %s", e.args)
+                    cls._log_error(e)
                     traceback.print_exc()
-                coro_result = e if return_exceptions else _ErrorPlaceHolder()
+                coro_result = e if return_exceptions else _ERROR_PLACEHOLDER_INSTANCE
 
-            await results_queue.put(coro_result)
+            results_queue.put_nowait(coro_result)
 
         background_tasks = set()
+        for c in coros:
+            task = loop.create_task(task_wrapper(c))
 
-        async def task_producer_wrapper():
-            # this function kept async, so it can be treated as a future in the loop
-            for c in coros:
-                task = loop.create_task(task_wrapper(c))
-
-                # add the task to the set, to avoid the task being garbage collected
-                background_tasks.add(task)
-                task.add_done_callback(background_tasks.discard)
-
-        if not loop.is_running():
-            loop.run_until_complete(task_producer_wrapper())
-        else:
-            await task_producer_wrapper()
+            # add the task to the set, to avoid the task being garbage collected
+            background_tasks.add(task)
+            task.add_done_callback(background_tasks.discard)
 
         for _ in coros:
             result = await results_queue.get()
-            if isinstance(result, _ErrorPlaceHolder):
+            if result is _ERROR_PLACEHOLDER_INSTANCE:
                 continue
 
             yield result
@@ -150,6 +146,12 @@ class AsyncParallelizer:
             return asyncio.get_running_loop()
         except RuntimeError:
             return asyncio.get_event_loop_policy().get_event_loop()
+
+    @classmethod
+    def _log_error(cls, e: BaseException):
+        cls._logger.error("Exception occurred: %s", e)
+        cls._logger.error("Exception type: %s", type(e).__name__)
+        cls._logger.error("Exception args: %s", e.args)
 
     @staticmethod
     def _divide_coros(coros: List[Callable[..., Coroutine]], n: int) -> List[List[Callable[..., Coroutine]]]:
