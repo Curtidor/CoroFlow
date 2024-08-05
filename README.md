@@ -24,8 +24,8 @@ Here's a simple example of how to use AsyncParallelizer to run multiple coroutin
 
 ```py
 import asyncio
+import async_parallelizer
 
-from async_parallelizer import AsyncParallelizer
 
 
 async def task_one():
@@ -39,7 +39,7 @@ async def task_two():
 async def main():
     coros = [task_one, task_two]
 
-    async for result in AsyncParallelizer.run_coros(coros):
+    async for result in async_parallelizer.run_coros(coros):
         print(result)
 
 asyncio.run(main())
@@ -50,8 +50,7 @@ To run coroutines across multiple threads, use threading_run_coros:
 
 ```py
 import asyncio
-
-from async_parallelizer import AsyncParallelizer
+import async_parallelizer 
 
 
 async def task_one():
@@ -66,7 +65,7 @@ async def main():
     coros = [task_one, task_two]
 
     # max_process_groups is the number of threads to use
-    async for result in AsyncParallelizer.threading_run_coros(coros, max_process_groups=2):
+    async for result in async_parallelizer.threading_run_coros(coros, max_process_groups=2):
         print(result)
 
 asyncio.run(main())
@@ -76,8 +75,7 @@ asyncio.run(main())
 you can configure AsyncParallelizer to return exceptions as part of the results (exceptions are returned by default):
 ```py
 import asyncio
-
-from async_parallelizer import AsyncParallelizer
+import async_parallelizer
 
 
 async def task_one():
@@ -89,7 +87,7 @@ async def task_two():
 async def main():
     coros = [task_one, task_two]
 
-    async for result in AsyncParallelizer.run_coros(coros, return_exceptions=True):
+    async for result in async_parallelizer.run_coros(coros, return_exceptions=True):
         print(result, type(result)
 
 asyncio.run(main())
@@ -106,8 +104,7 @@ Specify a timeout to limit the execution time of each coroutine:
 
 ```py
 import asyncio
-
-from async_parallelizer import AsyncParallelizer
+import async_parallelizer
 
 
 async def task_one():
@@ -120,7 +117,7 @@ async def task_two():
 async def main():
     coros = [task_one, task_two]
 
-    async for result in AsyncParallelizer.run_coros(coros, timeout=2):
+    async for result in async_parallelizer.run_coros(coros, timeout=2):
         print(result, type(result)
 
 asyncio.run(main())
@@ -157,7 +154,7 @@ Runs a list of coroutines concurrently using multiple threads.
 
 # Comparison: `asyncio.as_completed` vs. `AsyncParallelizer`
 
-When working with asynchronous coroutines in Python, you have different tools to handle concurrent execution. Below is a comparison between `asyncio.as_completed` and the custom `AsyncParallelizer` class to help you decide which is best suited for your needs.
+When working with asynchronous coroutines in Python, you have different tools to handle concurrent execution. Below is a comparison between `asyncio.as_completed` and the custom `async_parallelizer` function to help you decide which is best suited for your needs.
 
 ### `asyncio.as_completed`
 
