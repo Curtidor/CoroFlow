@@ -4,26 +4,45 @@ on:
   release:
     types: [published]
 
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
         with:
           python-version: '3.x'
-      - run: pip install pytest
-      - run: pytest
+
+      - name: Install dependencies
+        run: |
+          pip install setuptools wheel twine
+
+      - name: Run tests
+        run: |
+          pip install pytest
+          pytest
+
   release:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
         with:
           python-version: '3.x'
-      - uses: casperdcl/deploy-pypi@v2
+
+      - name: Build the package
+        run: |
+          python setup.py sdist bdist_wheel
+
+      - name: Upload package to PyPI
+        uses: pypi/deploy-action@v2
         with:
+          username: __token__
           password: ${{ secrets.PYPI_TOKEN }}
-          pip: wheel -w dist/ --no-deps .
