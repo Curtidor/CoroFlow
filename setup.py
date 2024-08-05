@@ -3,7 +3,7 @@ import os
 
 here = os.path.abspath(os.path.dirname(__file__))
 
-VERSION = '0.0.0'
+VERSION = '0.0.1'
 DESCRIPTION = (
     "CoroFlow is a Python library for running asynchronous coroutines concurrently, yielding results as soon as they "
     "are available. It supports both single-threaded and multi-threaded execution, offering flexibility for efficiently"
