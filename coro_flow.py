@@ -122,7 +122,6 @@ async def run_coros(
     background_tasks = set()
     for c in coros:
         task = loop.create_task(task_wrapper(c))
-
         # add the task to the set, to avoid the task being garbage collected
         background_tasks.add(task)
         task.add_done_callback(background_tasks.discard)

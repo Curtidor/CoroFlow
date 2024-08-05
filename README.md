@@ -1,13 +1,13 @@
-# AsyncParallelizer
+# CoroFlow
 
-AsyncParallelizer is a Python library for running asynchronous coroutines concurrently, yielding results as soon as they are available. It supports both single-threaded and multi-threaded execution, offering flexibility for efficiently managing complex asynchronous tasks.
+CoroFlow is a Python library for running asynchronous coroutines concurrently, yielding results as soon as they are available. It supports both single-threaded and multi-threaded execution, offering flexibility for efficiently managing complex asynchronous tasks.
 
- ## Why Use AsyncParallelizer?
-* **Instant Results:** AsyncParallelizer delivers results as soon as they become available, allowing your application to process and respond to data without waiting for all tasks to complete. This can significantly improve the responsiveness and user experience of applications that rely on real-time data processing.
+ ## Why Use CoroFlow?
+* **Instant Results:** CoroFlow delivers results as soon as they become available, allowing your application to process and respond to data without waiting for all tasks to complete. This can significantly improve the responsiveness and user experience of applications that rely on real-time data processing.
 
 * **Ideal for High-Performance Applications:** Perfect for scenarios where rapid execution and result retrieval are crucial, such as in real-time data processing, streaming applications, or services requiring quick response times.
 
-* **Versatile Use Cases:** Whether you're building web servers to web scrappers, data pipelines, or other concurrent systems, AsyncParallelizer helps manage complex asynchronous tasks efficiently. Its flexibility makes it suitable for both small-scale projects and large, distributed systems where timely results are essential.
+* **Versatile Use Cases:** Whether you're building web servers to web scrappers, data pipelines, or other concurrent systems, CoroFlow helps manage complex asynchronous tasks efficiently. Its flexibility makes it suitable for both small-scale projects and large, distributed systems where timely results are essential.
 
 ## Features:
 * **Concurrent Execution:** Run multiple coroutines concurrently in the same thread or across various threads.
@@ -20,27 +20,29 @@ AsyncParallelizer is a Python library for running asynchronous coroutines concur
 
 ## Basic Usage
 
-Here's a simple example of how to use AsyncParallelizer to run multiple coroutines concurrently:
+Here's a simple example of how to use CoroFlow to run multiple coroutines concurrently:
 
 ```py
 import asyncio
-import async_parallelizer
-
+import coro_flow
 
 
 async def task_one():
     await asyncio.sleep(3)
     return "Task One Completed"
 
+
 async def task_two():
     await asyncio.sleep(1)
     return "Task Two Completed"
 
+
 async def main():
     coros = [task_one, task_two]
 
-    async for result in async_parallelizer.run_coros(coros):
+    async for result in coro_flow.run_coros(coros):
         print(result)
+
 
 asyncio.run(main())
 ```
@@ -50,47 +52,53 @@ To run coroutines across multiple threads, use threading_run_coros:
 
 ```py
 import asyncio
-import async_parallelizer 
+import coro_flow
 
 
 async def task_one():
     await asyncio.sleep(2.9)
     return "Task One Completed"
 
+
 async def task_two():
     await asyncio.sleep(1.3)
     return "Task Two Completed"
+
 
 async def main():
     coros = [task_one, task_two]
 
     # max_process_groups is the number of threads to use
-    async for result in async_parallelizer.threading_run_coros(coros, max_process_groups=2):
+    async for result in coro_flow.threading_run_coros(coros, max_process_groups=2):
         print(result)
+
 
 asyncio.run(main())
 ```
 
 ## Handling Exceptions
-you can configure AsyncParallelizer to return exceptions as part of the results (exceptions are returned by default):
+you can configure CoroFlow to return exceptions as part of the results (exceptions are returned by default):
+
 ```py
 import asyncio
-import async_parallelizer
+import coro_flow
 
 
 async def task_one():
     raise ValueError("An error occurred in Task One")
 
+
 async def task_two():
     return "Task Two Completed"
+
 
 async def main():
     coros = [task_one, task_two]
 
-    async for result in async_parallelizer.run_coros(coros, return_exceptions=True):
+    async for result in coro_flow.run_coros(coros, return_exceptions=True):
         print(result, type(result)
 
-asyncio.run(main())
+        asyncio.run(main())
 ```
 ### Output
 ```
@@ -104,23 +112,25 @@ Specify a timeout to limit the execution time of each coroutine:
 
 ```py
 import asyncio
-import async_parallelizer
+import coro_flow
 
 
 async def task_one():
     await asyncio.sleep(5)
     return "Task One Completed"
 
+
 async def task_two():
     return "Task Two Completed"
+
 
 async def main():
     coros = [task_one, task_two]
 
-    async for result in async_parallelizer.run_coros(coros, timeout=2):
+    async for result in coro_flow.run_coros(coros, timeout=2):
         print(result, type(result)
 
-asyncio.run(main())
+        asyncio.run(main())
 
 ```
 
@@ -152,9 +162,9 @@ Runs a list of coroutines concurrently using multiple threads.
 * **return_exceptions:** Whether to return exceptions as part of the results. Defaults to True.
 * **debug:** If True, prints stack traces for exceptions. Defaults to False.
 
-# Comparison: `asyncio.as_completed` vs. `AsyncParallelizer`
+# Comparison: `asyncio.as_completed` vs. `CoroFlow`
 
-When working with asynchronous coroutines in Python, you have different tools to handle concurrent execution. Below is a comparison between `asyncio.as_completed` and the custom `async_parallelizer` function to help you decide which is best suited for your needs.
+When working with asynchronous coroutines in Python, you have different tools to handle concurrent execution. Below is a comparison between `asyncio.as_completed` and the custom `coro_flow` function to help you decide which is best suited for your needs.
 
 ### `asyncio.as_completed`
 
@@ -180,7 +190,7 @@ async for task in asyncio.as_completed(coros):
 
 * Simple use cases where you need to handle coroutines as they finish without additional error handling or timeout features.
 
-### `AsyncParallelizer`
+### `CoroFlow`
 **Purpose:**
 
 * Yields the results from a list of coroutines concurrently using threading (`optionally`) and asyncio, with features for error handling, timeout control, and event loop management.
@@ -196,7 +206,7 @@ async for task in asyncio.as_completed(coros):
 Example Usage:
 
 ```py
-async for result in AsyncParallelizer.run_coros([coro1, coro2, coro3], timeout=5, debug=True):
+async for result in coro_flow.run_coros([coro1, coro2, coro3], timeout=5, debug=True):
     print(result)
 ```
 **Best For:**
@@ -205,7 +215,7 @@ async for result in AsyncParallelizer.run_coros([coro1, coro2, coro3], timeout=5
 
 ## Summary
 
-| Feature             | `asyncio.as_completed`                            | `AsyncParallelizer`                               |
+| Feature             | `asyncio.as_completed`                            | `CoroFlow`                               |
 |---------------------|---------------------------------------------------|--------------------------------------------------|
 | **Purpose**         | Yields coroutines as they complete                | Yields the results of coroutines as they become available     |
 | **Concurrency**     | Uses asyncio event loop only                      | Uses asyncio event loop, with the additional choice of threading         |
