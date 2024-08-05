@@ -24,7 +24,7 @@ Here's a simple example of how to use CoroFlow to run multiple coroutines concur
 
 ```py
 import asyncio
-import coro_flow
+from CoroFlow import run_coros
 
 
 async def task_one():
@@ -40,7 +40,7 @@ async def task_two():
 async def main():
     coros = [task_one, task_two]
 
-    async for result in coro_flow.run_coros(coros):
+    async for result in run_coros(coros):
         print(result)
 
 
@@ -52,7 +52,7 @@ To run coroutines across multiple threads, use threading_run_coros:
 
 ```py
 import asyncio
-import coro_flow
+from CoroFlow import threading_run_coros
 
 
 async def task_one():
@@ -69,7 +69,7 @@ async def main():
     coros = [task_one, task_two]
 
     # max_process_groups is the number of threads to use
-    async for result in coro_flow.threading_run_coros(coros, max_process_groups=2):
+    async for result in threading_run_coros(coros, max_process_groups=2):
         print(result)
 
 
@@ -81,7 +81,7 @@ you can configure CoroFlow to return exceptions as part of the results (exceptio
 
 ```py
 import asyncio
-import coro_flow
+from CoroFlow import run_coros
 
 
 async def task_one():
@@ -95,8 +95,8 @@ async def task_two():
 async def main():
     coros = [task_one, task_two]
 
-    async for result in coro_flow.run_coros(coros, return_exceptions=True):
-        print(result, type(result)
+    async for result in run_coros(coros, return_exceptions=True):
+        print(result, type(result))
 
         asyncio.run(main())
 ```
@@ -112,7 +112,7 @@ Specify a timeout to limit the execution time of each coroutine:
 
 ```py
 import asyncio
-import coro_flow
+from CoroFlow import run_coros
 
 
 async def task_one():
@@ -127,8 +127,8 @@ async def task_two():
 async def main():
     coros = [task_one, task_two]
 
-    async for result in coro_flow.run_coros(coros, timeout=2):
-        print(result, type(result)
+    async for result in run_coros(coros, timeout=2):
+        print(result, type(result))
 
         asyncio.run(main())
 
@@ -206,7 +206,7 @@ async for task in asyncio.as_completed(coros):
 Example Usage:
 
 ```py
-async for result in coro_flow.run_coros([coro1, coro2, coro3], timeout=5, debug=True):
+async for result in run_coros([coro1, coro2, coro3], timeout=5, debug=True):
     print(result)
 ```
 **Best For:**
