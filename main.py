@@ -2,7 +2,6 @@ import asyncio
 import functools
 import random
 
-import coro_flow
 from coro_flow import run_coros
 
 
