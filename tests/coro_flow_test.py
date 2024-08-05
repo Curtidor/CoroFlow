@@ -4,7 +4,7 @@ import asyncio
 from CoroFlow.coro_flow import run_coros, threading_run_coros, _divide_coros # noqa
 
 
-class TestAsyncParallelizer(unittest.IsolatedAsyncioTestCase):
+class TestCoroFlow(unittest.IsolatedAsyncioTestCase):
 
     async def test_threading_run_coros(self):
         async def task_one():
