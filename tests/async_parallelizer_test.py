@@ -1,7 +1,7 @@
 import unittest
 import asyncio
 
-from coro_flow import run_coros, threading_run_coros, _divide_coros
+from CoroFlow.coro_flow import run_coros, threading_run_coros, _divide_coros # noqa
 
 
 class TestAsyncParallelizer(unittest.IsolatedAsyncioTestCase):
