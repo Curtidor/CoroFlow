@@ -2,7 +2,7 @@ import asyncio
 import functools
 import random
 
-from CoroFlow import run_coros
+from CroFlow import run_coros
 
 
 async def fetch_data(url: str) -> str:
