@@ -15,13 +15,16 @@ DESCRIPTION = (
 setup(
     name="CoroFlow",
     version=VERSION,
-    author="Tanner Matos",
+    author="Curtidor",
     author_email="tannermatos18@gmail.com",
     description=DESCRIPTION,
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     packages=find_packages(),
-    install_requires=['pytest'],
+    install_requires=[
+        'pytest',
+        'setuptools~=65.5.1'
+    ],
     keywords=['CoroFlow', 'asynchronous', 'threading', 'parallel execution', 'coroutines',
               'task management', 'performance optimization', 'Python 3'],
     classifiers=[
